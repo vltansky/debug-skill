@@ -27,17 +27,19 @@ If no path provided, use the current working directory.
    mkdir -p /path/to/project/.cursor
    ```
 
-2. Start the server from the skill's scripts directory (runs in background):
+2. Start the server from the skill's scripts directory.
+
+   **CRITICAL:** This command MUST run as a background process. When using `run_terminal_cmd`, set `is_background: true`. Do NOT rely on `&` suffix alone.
+
    ```bash
-   node /path/to/debug-skill/scripts/debug_server.js /path/to/project &
-   sleep 0.5
+   node /path/to/debug-skill/scripts/debug_server.js /path/to/project
    ```
 
    Replace `/path/to/debug-skill` with the absolute path to this skill's directory.
 
-3. Get the session ID from the running server:
+3. Wait briefly, then get the session ID from the running server:
    ```bash
-   curl -s http://localhost:8787/ | grep -o 'debug-[^.]*'
+   sleep 0.5 && curl -s http://localhost:8787/ | grep -o 'debug-[^.]*'
    ```
 
    This returns the session ID (e.g. `debug-m3x7k2ab`). **Save it** for all log file references.
