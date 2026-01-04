@@ -14,8 +14,13 @@ import os
 import sys
 from datetime import datetime
 
+import time
+import random
+import string
+
 LOG_DIR = sys.argv[1] if len(sys.argv) > 1 else "."
-LOG_FILE = os.path.join(LOG_DIR, ".claude", "debug.log")
+SESSION_ID = f"{int(time.time()):x}{''.join(random.choices(string.ascii_lowercase + string.digits, k=4))}"
+LOG_FILE = os.path.join(LOG_DIR, ".claude", f"debug-{SESSION_ID}.log")
 PORT = int(os.environ.get("DEBUG_PORT", "8787"))
 
 os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)

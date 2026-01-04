@@ -22,22 +22,31 @@ If no path provided, use the current working directory.
 
 ### Phase 1: Start Log Server
 
-1. Copy the bundled server script to the project:
+1. Create log directory in target project:
    ```bash
-   cp scripts/debug_server.js /path/to/project/.claude/
+   mkdir -p /path/to/project/.cursor
    ```
 
-2. Instruct the user to start the server in a separate terminal:
+2. Start the server from the skill's scripts directory (runs in background):
    ```bash
-   node .claude/debug_server.js .
+   node /path/to/debug-mcp/scripts/debug_server.js /path/to/project &
+   sleep 0.5
    ```
 
-This starts an HTTP server on port 8787 that:
-- Receives POST requests at `/log`
-- Writes logs to `{project}/.claude/debug.log`
-- Returns status at GET `/` (health check)
+   Replace `/path/to/debug-mcp` with the absolute path to this skill's directory.
 
-Verify it's running: `curl http://localhost:8787/`
+3. Get the session ID from the running server:
+   ```bash
+   curl -s http://localhost:8787/ | grep -o 'debug-[^.]*'
+   ```
+
+   This returns the session ID (e.g. `debug-m3x7k2ab`). **Save it** for all log file references.
+
+The server on port 8787:
+- POST `/log` → writes to `{project}/.cursor/debug-{SESSION_ID}.log`
+- GET `/` → returns `{"status":"ok","log_file":"...debug-{SESSION_ID}.log"}`
+
+**Note:** Do NOT copy the server script to the target project. Run it directly from the skill directory.
 
 ### Phase 2: Generate Hypotheses
 
@@ -85,12 +94,14 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 - Cover function entry/exit, critical values, branch paths
 - Tag each log with relevant `hypothesisId`
 - Wrap instrumentation in comments: `// #region debug` ... `// #endregion`
+- For high-frequency events (mousemove, scroll, dragover): log only on **state change**, not every invocation
+- Log both **intent** (what should happen) and **result** (what actually happened)
 
 ### Phase 4: Clear and Reproduce
 
-1. Delete the log file before reproduction:
+1. Clear the log file before reproduction:
    ```bash
-   rm /path/to/project/.claude/debug.log
+   : > /path/to/project/.cursor/debug-{SESSION_ID}.log
    ```
 
 2. Provide clear reproduction steps to the user
@@ -102,7 +113,7 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 Read the log file and analyze:
 
 ```
-Read /path/to/project/.claude/debug.log
+Read /path/to/project/.cursor/debug-{SESSION_ID}.log
 ```
 
 For each hypothesis:
@@ -133,7 +144,7 @@ Search for `#region debug` markers and remove all debug logging code.
 
 ## Log Format
 
-Each line in `.claude/debug.log` is NDJSON:
+Each line in `.cursor/debug-{SESSION_ID}.log` is NDJSON:
 ```json
 {"ts":"2024-01-03T12:00:00.000Z","msg":"Button clicked","data":{"id":5},"hypothesisId":"H1","loc":"app.js:42"}
 ```

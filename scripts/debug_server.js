@@ -13,7 +13,8 @@ const fs = require('fs');
 const path = require('path');
 
 const LOG_DIR = process.argv[2] || '.';
-const LOG_FILE = path.join(LOG_DIR, '.claude', 'debug.log');
+const SESSION_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const LOG_FILE = path.join(LOG_DIR, '.claude', `debug-${SESSION_ID}.log`);
 const PORT = parseInt(process.env.DEBUG_PORT || '8787', 10);
 
 fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
