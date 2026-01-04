@@ -24,7 +24,7 @@ If no path provided, use the current working directory.
 
 1. Create log directory in target project:
    ```bash
-   mkdir -p /path/to/project/.cursor
+   mkdir -p /path/to/project/.claude
    ```
 
 2. Start the server from the skill's scripts directory.
@@ -45,7 +45,7 @@ If no path provided, use the current working directory.
    This returns the session ID (e.g. `debug-m3x7k2ab`). **Save it** for all log file references.
 
 The server on port 8787:
-- POST `/log` → writes to `{project}/.cursor/debug-{SESSION_ID}.log`
+- POST `/log` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
 - GET `/` → returns `{"status":"ok","log_file":"...debug-{SESSION_ID}.log"}`
 
 **Note:** Do NOT copy the server script to the target project. Run it directly from the skill directory.
@@ -103,7 +103,7 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 
 1. Clear the log file before reproduction:
    ```bash
-   : > /path/to/project/.cursor/debug-{SESSION_ID}.log
+   : > /path/to/project/.claude/debug-{SESSION_ID}.log
    ```
 
 2. Provide clear reproduction steps to the user
@@ -115,7 +115,7 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 Read the log file and analyze:
 
 ```
-Read /path/to/project/.cursor/debug-{SESSION_ID}.log
+Read /path/to/project/.claude/debug-{SESSION_ID}.log
 ```
 
 For each hypothesis:
@@ -146,7 +146,7 @@ Search for `#region debug` markers and remove all debug logging code.
 
 ## Log Format
 
-Each line in `.cursor/debug-{SESSION_ID}.log` is NDJSON:
+Each line in `.claude/debug-{SESSION_ID}.log` is NDJSON:
 ```json
 {"ts":"2024-01-03T12:00:00.000Z","msg":"Button clicked","data":{"id":5},"hypothesisId":"H1","loc":"app.js:42"}
 ```
