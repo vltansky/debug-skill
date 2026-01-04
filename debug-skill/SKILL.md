@@ -1,6 +1,15 @@
 ---
 name: debug
 description: Runtime debugging workflow with log collection. Use when fixing bugs that require runtime evidence. Starts a log server, instruments code, collects logs during reproduction, and analyzes them to fix issues. Invoke with project path argument.
+allowed-tools:
+  - Read
+  - Edit
+  - Grep
+  - Bash(node:*)
+  - Bash(curl:*)
+  - Bash(mkdir:*)
+  - Task
+  - TodoWrite
 ---
 
 # Debug Mode
@@ -108,7 +117,7 @@ Replace `REPLACE_WITH_SESSION_ID` with the timestamp generated in Phase 1.
 
 1. Clear the log file before reproduction:
    ```bash
-   : > /path/to/project/.claude/$SESSION_ID.log
+   node /path/to/debug-skill/scripts/debug_cleanup.js clear /path/to/project $SESSION_ID
    ```
 
 2. Provide clear reproduction steps to the user
@@ -147,7 +156,12 @@ Remove instrumentation only after:
 - Post-fix logs prove success
 - User confirms the issue is resolved
 
-Search for `#region debug` markers and remove all debug logging code.
+1. Search for `#region debug` markers and remove all debug logging code
+
+2. Remove the log file:
+   ```bash
+   node /path/to/debug-skill/scripts/debug_cleanup.js remove /path/to/project $SESSION_ID
+   ```
 
 ## Log Format
 

@@ -2,6 +2,8 @@
 
 Ported [Cursor's Debug Mode](https://cursor.com/blog/debug-mode) as a skill for Claude Code / any agent that supports skills.
 
+![Debug Skill Screenshot](screenshot.png)
+
 **How it works:**
 - Start a log server on localhost
 - Instrument code to send logs
