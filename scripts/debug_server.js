@@ -2,7 +2,8 @@
 /**
  * Debug Log Server
  *
- * Receives logs via HTTP POST and writes them to {project}/.claude/debug.log
+ * Receives logs via HTTP POST and writes them to {project}/.claude/debug-{sessionId}.log
+ * Supports multiple concurrent sessions via sessionId parameter.
  *
  * Usage:
  *     node debug_server.js /path/to/project
@@ -13,11 +14,12 @@ const fs = require('fs');
 const path = require('path');
 
 const LOG_DIR = process.argv[2] || '.';
-const SESSION_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const LOG_FILE = path.join(LOG_DIR, '.claude', `debug-${SESSION_ID}.log`);
+const CLAUDE_DIR = path.join(LOG_DIR, '.claude');
 const PORT = parseInt(process.env.DEBUG_PORT || '8787', 10);
 
-fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+fs.mkdirSync(CLAUDE_DIR, { recursive: true });
+
+const getLogFile = (sessionId) => path.join(CLAUDE_DIR, `debug-${sessionId}.log`);
 
 const server = http.createServer((req, res) => {
   const cors = {
@@ -34,7 +36,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
-    res.end(JSON.stringify({ status: 'ok', log_file: LOG_FILE }));
+    res.end(JSON.stringify({ status: 'ok', log_dir: CLAUDE_DIR }));
     return;
   }
 
@@ -44,14 +46,19 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const data = body ? JSON.parse(body) : {};
-        const entry = { ts: new Date().toISOString(), ...data };
+        const sessionId = data.sessionId || 'default';
+        const logFile = getLogFile(sessionId);
+        
+        // Remove sessionId from stored entry (it's in filename)
+        const { sessionId: _, ...rest } = data;
+        const entry = { ts: new Date().toISOString(), ...rest };
 
-        fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+        fs.appendFileSync(logFile, JSON.stringify(entry) + '\n');
 
         res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
-        res.end('{"ok":true}');
+        res.end(JSON.stringify({ ok: true, log_file: logFile }));
 
-        console.log(`[LOG] ${entry.msg || JSON.stringify(entry).slice(0, 80)}`);
+        console.log(`[${sessionId}] ${entry.msg || JSON.stringify(entry).slice(0, 80)}`);
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json', ...cors });
         res.end(JSON.stringify({ error: e.message }));
@@ -67,6 +74,6 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log('Debug Log Server');
   console.log(`  Endpoint: http://localhost:${PORT}/log`);
-  console.log(`  Log file: ${LOG_FILE}`);
+  console.log(`  Log dir:  ${CLAUDE_DIR}`);
   console.log('  Press Ctrl+C to stop\n');
 });

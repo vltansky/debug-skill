@@ -2,7 +2,8 @@
 """
 Debug Log Server
 
-Receives logs via HTTP POST and writes them to {project}/.claude/debug.log
+Receives logs via HTTP POST and writes them to {project}/.claude/debug-{sessionId}.log
+Supports multiple concurrent sessions via sessionId parameter.
 
 Usage:
     python3 debug_server.py /path/to/project
@@ -14,16 +15,15 @@ import os
 import sys
 from datetime import datetime
 
-import time
-import random
-import string
-
 LOG_DIR = sys.argv[1] if len(sys.argv) > 1 else "."
-SESSION_ID = f"{int(time.time()):x}{''.join(random.choices(string.ascii_lowercase + string.digits, k=4))}"
-LOG_FILE = os.path.join(LOG_DIR, ".claude", f"debug-{SESSION_ID}.log")
+CLAUDE_DIR = os.path.join(LOG_DIR, ".claude")
 PORT = int(os.environ.get("DEBUG_PORT", "8787"))
 
-os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+os.makedirs(CLAUDE_DIR, exist_ok=True)
+
+
+def get_log_file(session_id):
+    return os.path.join(CLAUDE_DIR, f"debug-{session_id}.log")
 
 
 class DebugHandler(BaseHTTPRequestHandler):
@@ -45,7 +45,7 @@ class DebugHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self._send_cors_headers()
         self.end_headers()
-        self.wfile.write(json.dumps({"status": "ok", "log_file": LOG_FILE}).encode())
+        self.wfile.write(json.dumps({"status": "ok", "log_dir": CLAUDE_DIR}).encode())
 
     def do_POST(self):
         try:
@@ -53,22 +53,25 @@ class DebugHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length)
             data = json.loads(body) if body else {}
 
+            session_id = data.pop("sessionId", "default")
+            log_file = get_log_file(session_id)
+
             entry = {
                 "ts": datetime.now().isoformat(),
                 **data
             }
 
-            with open(LOG_FILE, "a") as f:
+            with open(log_file, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self._send_cors_headers()
             self.end_headers()
-            self.wfile.write(b'{"ok":true}')
+            self.wfile.write(json.dumps({"ok": True, "log_file": log_file}).encode())
 
             msg = entry.get("msg", json.dumps(entry)[:80])
-            print(f"[LOG] {msg}")
+            print(f"[{session_id}] {msg}")
 
         except Exception as e:
             self.send_response(400)
@@ -81,7 +84,7 @@ class DebugHandler(BaseHTTPRequestHandler):
 def main():
     print(f"Debug Log Server")
     print(f"  Endpoint: http://localhost:{PORT}/log")
-    print(f"  Log file: {LOG_FILE}")
+    print(f"  Log dir:  {CLAUDE_DIR}")
     print(f"  Press Ctrl+C to stop\n")
 
     server = HTTPServer(("", PORT), DebugHandler)
