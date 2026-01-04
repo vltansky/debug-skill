@@ -29,7 +29,7 @@ If no path provided, use the current working directory.
 
 2. Start the server from the skill's scripts directory.
 
-   **CRITICAL:** This command MUST run as a background process. When using `run_terminal_cmd`, set `is_background: true`. Do NOT rely on `&` suffix alone.
+   **CRITICAL:** Run this command in background using `Bash` tool with `run_in_background: true`.
 
    ```bash
    node /path/to/debug-skill/scripts/debug_server.js /path/to/project
@@ -37,16 +37,17 @@ If no path provided, use the current working directory.
 
    Replace `/path/to/debug-skill` with the absolute path to this skill's directory.
 
-3. Wait briefly, then get the session ID from the running server:
+3. Generate a unique session ID and verify server is running:
    ```bash
-   sleep 0.5 && curl -s http://localhost:8787/ | grep -o 'debug-[^.]*'
+   SESSION_ID="debug-$(date +%s)"
+   curl -s http://localhost:8787/
    ```
 
-   This returns the session ID (e.g. `debug-m3x7k2ab`). **Save it** for all log file references.
+   Save `SESSION_ID` for all log file references. The session ID is passed in each log request body.
 
 The server on port 8787:
-- POST `/log` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
-- GET `/` → returns `{"status":"ok","log_file":"...debug-{SESSION_ID}.log"}`
+- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/{sessionId}.log`
+- GET `/` → returns `{"status":"ok","log_dir":"..."}`
 
 **Note:** Do NOT copy the server script to the target project. Run it directly from the skill directory.
 
@@ -64,12 +65,13 @@ Add logging calls to the codebase. Use this pattern in the app:
 
 **JavaScript/TypeScript:**
 ```javascript
-// Debug log helper
+// Debug log helper - set SESSION_ID before using
+const SESSION_ID = 'debug-' + Date.now(); // or use value from Phase 1
 const debugLog = (msg, data = {}, hypothesisId = null) =>
   fetch('http://localhost:8787/log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ msg, data, hypothesisId, loc: new Error().stack?.split('\n')[2] })
+    body: JSON.stringify({ sessionId: SESSION_ID, msg, data, hypothesisId, loc: new Error().stack?.split('\n')[2] })
   }).catch(() => {});
 
 // Usage
@@ -78,12 +80,13 @@ debugLog('User clicked submit', { userId: 123, formData }, 'H1');
 
 **Python:**
 ```python
-import requests, traceback
+import requests, traceback, time
+SESSION_ID = f"debug-{int(time.time())}"  # or use value from Phase 1
 def debug_log(msg, data=None, hypothesis_id=None):
     try:
         requests.post('http://localhost:8787/log', json={
-            'msg': msg, 'data': data, 'hypothesisId': hypothesis_id,
-            'loc': traceback.format_stack()[-2].strip()
+            'sessionId': SESSION_ID, 'msg': msg, 'data': data,
+            'hypothesisId': hypothesis_id, 'loc': traceback.format_stack()[-2].strip()
         }, timeout=0.5)
     except: pass
 
@@ -149,6 +152,37 @@ Search for `#region debug` markers and remove all debug logging code.
 Each line in `.claude/debug-{SESSION_ID}.log` is NDJSON:
 ```json
 {"ts":"2024-01-03T12:00:00.000Z","msg":"Button clicked","data":{"id":5},"hypothesisId":"H1","loc":"app.js:42"}
+```
+
+## Subagent Delegation (Optional)
+
+For complex bugs, delegate to parallel subagents for faster analysis.
+
+### When to Spawn Subagents
+
+**MUST delegate via Task tool when:**
+1. **3+ hypotheses** need parallel analysis
+2. **Codebase search** needed to find instrumentation points (>5 files)
+3. **Multi-file instrumentation** required
+
+### Parallel Hypothesis Analysis
+
+When analyzing logs with multiple hypotheses, spawn analyzers in parallel:
+
+```
+Task("H1-analyzer", "Analyze {log_file} for hypothesis H1: {description}. Return CONFIRMED/REJECTED with specific log line evidence.", "researcher")
+Task("H2-analyzer", "Analyze {log_file} for hypothesis H2: {description}. Return CONFIRMED/REJECTED with specific log line evidence.", "researcher")
+Task("H3-analyzer", "Analyze {log_file} for hypothesis H3: {description}. Return CONFIRMED/REJECTED with specific log line evidence.", "researcher")
+```
+
+**Why**: Sequential analysis of H1→H2→H3 is slow. Parallel cuts Phase 5 time by 3-5x.
+
+### Instrumentation Discovery
+
+When unsure where to add logging:
+
+```
+Task("flow-tracer", "Trace code flow related to: {bug_description}. Return list of files/functions that need instrumentation with line numbers.", "researcher")
 ```
 
 ## Critical Rules
