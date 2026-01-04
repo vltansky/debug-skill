@@ -1,32 +1,26 @@
 # Debug Skill
 
-Runtime debugging skill for AI coding agents (Claude Code, Cursor, Windsurf, Aider).
+Ported [Cursor's Debug Mode](https://cursor.com/blog/debug-mode) as a skill for Claude Code / any agent that supports skills.
 
-Collects runtime logs during bug reproduction to make evidence-based fixes instead of guessing.
+**How it works:**
+- Start a log server on localhost
+- Instrument code to send logs
+- Read logs from file, fix with evidence
 
-Heavily inspired by (essentially a port of) [Cursor's Debug Mode](https://docs.cursor.com/agent/tools#debug).
+Runtime agnostic - works anywhere with localhost access.
 
 ## Installation
-
-### Option 1: OpenSkills CLI (recommended)
 
 ```bash
 npx -y openskills install vltansky/debug-skill
 npx -y openskills sync
 ```
 
-### Option 2: Manual
+Or manually:
 
 ```bash
-# Clone
 git clone https://github.com/vltansky/debug-skill.git
-cd debug-skill
-
-# Install to global skills
-npm run install-skill
-
-# Or copy manually
-cp -r debug-skill ~/.claude/skills/debug
+cp -r debug-skill/debug-skill ~/.claude/skills/debug
 ```
 
 ## Usage
@@ -36,14 +30,6 @@ In your AI agent, invoke the skill:
 ```
 debug /path/to/project
 ```
-
-The skill will:
-1. Start a log server on port 8787
-2. Help you generate hypotheses about the bug
-3. Instrument code with debug logging
-4. Collect logs during reproduction
-5. Analyze logs to confirm/reject hypotheses
-6. Fix based on evidence
 
 ## Structure
 
