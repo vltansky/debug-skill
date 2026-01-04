@@ -48,7 +48,7 @@ const server = http.createServer((req, res) => {
         const data = body ? JSON.parse(body) : {};
         const sessionId = data.sessionId || 'default';
         const logFile = getLogFile(sessionId);
-        
+
         // Remove sessionId from stored entry (it's in filename)
         const { sessionId: _, ...rest } = data;
         const entry = { ts: new Date().toISOString(), ...rest };

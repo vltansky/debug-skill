@@ -1,0 +1,22 @@
+{
+  "name": "debug-skill",
+  "version": "1.0.0",
+  "description": "Runtime debugging skill for AI coding agents",
+  "scripts": {
+    "install-skill": "mkdir -p ~/.claude/skills && cp -r debug-skill ~/.claude/skills/debug && echo 'Installed to ~/.claude/skills/debug'"
+  },
+  "keywords": [
+    "debug",
+    "skills",
+    "claude",
+    "cursor",
+    "ai",
+    "agents"
+  ],
+  "author": "Vlad Tansky",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vltansky/debug-skill"
+  }
+}

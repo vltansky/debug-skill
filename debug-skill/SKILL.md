@@ -24,28 +24,27 @@ If no path provided, use the current working directory.
 
 1. Create log directory in target project:
    ```bash
-   mkdir -p /path/to/project/.claude
+   mkdir -p /path/to/project/.cursor
    ```
 
-2. Generate a session ID for this debug session:
+2. Start the server from the skill's scripts directory (runs in background):
    ```bash
-   SESSION_ID=$(date +%s | base64 | head -c 8)
-   echo "Session: $SESSION_ID"
+   node /path/to/debug-skill/scripts/debug_server.js /path/to/project &
+   sleep 0.5
    ```
 
-3. Check if server already running, start if not:
+   Replace `/path/to/debug-skill` with the absolute path to this skill's directory.
+
+3. Get the session ID from the running server:
    ```bash
-   curl -s http://localhost:8787/ > /dev/null 2>&1 || {
-     node /path/to/debug-mcp/scripts/debug_server.js /path/to/project &
-     sleep 0.5
-   }
+   curl -s http://localhost:8787/ | grep -o 'debug-[^.]*'
    ```
 
-   Replace `/path/to/debug-mcp` with the absolute path to this skill's directory.
+   This returns the session ID (e.g. `debug-m3x7k2ab`). **Save it** for all log file references.
 
-The server on port 8787 supports multiple concurrent sessions:
-- POST `/log` with `sessionId` in body → writes to `{project}/.claude/debug-{sessionId}.log`
-- GET `/` → returns `{"status":"ok","log_dir":".../.claude"}`
+The server on port 8787:
+- POST `/log` → writes to `{project}/.cursor/debug-{SESSION_ID}.log`
+- GET `/` → returns `{"status":"ok","log_file":"...debug-{SESSION_ID}.log"}`
 
 **Note:** Do NOT copy the server script to the target project. Run it directly from the skill directory.
 
@@ -63,13 +62,12 @@ Add logging calls to the codebase. Use this pattern in the app:
 
 **JavaScript/TypeScript:**
 ```javascript
-// Debug log helper - SESSION_ID is provided by the workflow
-const SESSION_ID = 'REPLACE_WITH_SESSION_ID';
+// Debug log helper
 const debugLog = (msg, data = {}, hypothesisId = null) =>
   fetch('http://localhost:8787/log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ msg, data, hypothesisId, sessionId: SESSION_ID, loc: new Error().stack?.split('\n')[2] })
+    body: JSON.stringify({ msg, data, hypothesisId, loc: new Error().stack?.split('\n')[2] })
   }).catch(() => {});
 
 // Usage
@@ -79,15 +77,11 @@ debugLog('User clicked submit', { userId: 123, formData }, 'H1');
 **Python:**
 ```python
 import requests, traceback
-
-# SESSION_ID is provided by the workflow
-SESSION_ID = 'REPLACE_WITH_SESSION_ID'
-
 def debug_log(msg, data=None, hypothesis_id=None):
     try:
         requests.post('http://localhost:8787/log', json={
             'msg': msg, 'data': data, 'hypothesisId': hypothesis_id,
-            'sessionId': SESSION_ID, 'loc': traceback.format_stack()[-2].strip()
+            'loc': traceback.format_stack()[-2].strip()
         }, timeout=0.5)
     except: pass
 
@@ -107,7 +101,7 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 
 1. Clear the log file before reproduction:
    ```bash
-   : > /path/to/project/.claude/debug-{SESSION_ID}.log
+   : > /path/to/project/.cursor/debug-{SESSION_ID}.log
    ```
 
 2. Provide clear reproduction steps to the user
@@ -119,7 +113,7 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 Read the log file and analyze:
 
 ```
-Read /path/to/project/.claude/debug-{SESSION_ID}.log
+Read /path/to/project/.cursor/debug-{SESSION_ID}.log
 ```
 
 For each hypothesis:
@@ -150,7 +144,7 @@ Search for `#region debug` markers and remove all debug logging code.
 
 ## Log Format
 
-Each line in `.claude/debug-{SESSION_ID}.log` is NDJSON:
+Each line in `.cursor/debug-{SESSION_ID}.log` is NDJSON:
 ```json
 {"ts":"2024-01-03T12:00:00.000Z","msg":"Button clicked","data":{"id":5},"hypothesisId":"H1","loc":"app.js:42"}
 ```
