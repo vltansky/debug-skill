@@ -51,14 +51,12 @@ The skill will:
 debug-skill/
 ├── SKILL.md              # Skill instructions
 └── scripts/
-    ├── debug_server.js   # Node.js log server
-    └── debug_server.py   # Python log server (alternative)
+    └── debug_server.js   # Log server
 ```
 
 ## Requirements
 
-- Node.js 18+ (for debug_server.js)
-- OR Python 3.8+ (for debug_server.py)
+- Node.js 18+
 
 ## License
 
