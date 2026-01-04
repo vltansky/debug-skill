@@ -65,8 +65,8 @@ Add logging calls to the codebase. Use this pattern in the app:
 
 **JavaScript/TypeScript:**
 ```javascript
-// Debug log helper - set SESSION_ID before using
-const SESSION_ID = 'debug-' + Date.now(); // or use value from Phase 1
+// Debug log helper - use SESSION_ID from Phase 1
+const SESSION_ID = 'debug-REPLACE_WITH_SESSION_ID';
 const debugLog = (msg, data = {}, hypothesisId = null) =>
   fetch('http://localhost:8787/log', {
     method: 'POST',
@@ -80,8 +80,8 @@ debugLog('User clicked submit', { userId: 123, formData }, 'H1');
 
 **Python:**
 ```python
-import requests, traceback, time
-SESSION_ID = f"debug-{int(time.time())}"  # or use value from Phase 1
+import requests, traceback
+SESSION_ID = 'debug-REPLACE_WITH_SESSION_ID'
 def debug_log(msg, data=None, hypothesis_id=None):
     try:
         requests.post('http://localhost:8787/log', json={
@@ -93,6 +93,8 @@ def debug_log(msg, data=None, hypothesis_id=None):
 # Usage
 debug_log('Processing request', {'user_id': 123}, 'H1')
 ```
+
+Replace `REPLACE_WITH_SESSION_ID` with the timestamp generated in Phase 1.
 
 **Guidelines:**
 - Add 3-8 instrumentation points
@@ -106,7 +108,7 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 
 1. Clear the log file before reproduction:
    ```bash
-   : > /path/to/project/.claude/debug-{SESSION_ID}.log
+   : > /path/to/project/.claude/$SESSION_ID.log
    ```
 
 2. Provide clear reproduction steps to the user
@@ -115,10 +117,10 @@ debug_log('Processing request', {'user_id': 123}, 'H1')
 
 ### Phase 5: Analyze Logs
 
-Read the log file and analyze:
+Read the log file using the `Read` tool:
 
 ```
-Read /path/to/project/.claude/debug-{SESSION_ID}.log
+/path/to/project/.claude/$SESSION_ID.log
 ```
 
 For each hypothesis:
@@ -149,7 +151,7 @@ Search for `#region debug` markers and remove all debug logging code.
 
 ## Log Format
 
-Each line in `.claude/debug-{SESSION_ID}.log` is NDJSON:
+Each line in `.claude/$SESSION_ID.log` is NDJSON:
 ```json
 {"ts":"2024-01-03T12:00:00.000Z","msg":"Button clicked","data":{"id":5},"hypothesisId":"H1","loc":"app.js:42"}
 ```
@@ -169,21 +171,16 @@ For complex bugs, delegate to parallel subagents for faster analysis.
 
 When analyzing logs with multiple hypotheses, spawn analyzers in parallel:
 
-```
-Task("H1-analyzer", "Analyze {log_file} for hypothesis H1: {description}. Return CONFIRMED/REJECTED with specific log line evidence.", "researcher")
-Task("H2-analyzer", "Analyze {log_file} for hypothesis H2: {description}. Return CONFIRMED/REJECTED with specific log line evidence.", "researcher")
-Task("H3-analyzer", "Analyze {log_file} for hypothesis H3: {description}. Return CONFIRMED/REJECTED with specific log line evidence.", "researcher")
-```
+Use the `Task` tool with `subagent_type: "general-purpose"` for each hypothesis in parallel:
+- H1: "Analyze {log_file} for hypothesis H1: {description}. Return CONFIRMED/REJECTED with specific log line evidence."
+- H2: "Analyze {log_file} for hypothesis H2: {description}. Return CONFIRMED/REJECTED with specific log line evidence."
+- H3: "Analyze {log_file} for hypothesis H3: {description}. Return CONFIRMED/REJECTED with specific log line evidence."
 
 **Why**: Sequential analysis of H1→H2→H3 is slow. Parallel cuts Phase 5 time by 3-5x.
 
 ### Instrumentation Discovery
 
-When unsure where to add logging:
-
-```
-Task("flow-tracer", "Trace code flow related to: {bug_description}. Return list of files/functions that need instrumentation with line numbers.", "researcher")
-```
+When unsure where to add logging, use `Task` tool with `subagent_type: "Explore"` to trace code flow and find instrumentation points.
 
 ## Critical Rules
 
