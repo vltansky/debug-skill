@@ -1,23 +1,6 @@
 ---
 name: debug
-description: |
-  Runtime debugging workflow with automated log collection. Use when:
-  - Fixing bugs that require runtime evidence (values, types, flow)
-  - You need user to reproduce bug and check console/DevTools manually
-  - You've added console.log/debug statements and need to analyze output
-  - Bug depends on user interaction (click, form, modal) that can't be simulated
-  - You'd otherwise ask user to "open DevTools, reproduce X, tell me what you see"
-
-  This skill automates log collection: instead of asking user to copy-paste console output, logs are captured server-side and accessible programmatically.
-allowed-tools:
-  - Read
-  - Edit
-  - Grep
-  - Bash(node:*)
-  - Bash(curl:*)
-  - Bash(mkdir:*)
-  - Task
-  - TodoWrite
+description: Runtime debugging workflow with automated log collection. Use when fixing bugs that require runtime evidence (values, types, flow), when you'd otherwise ask user to "open DevTools, reproduce X, tell me what you see", or when bug depends on user interaction that can't be simulated. This skill automates log collection - logs are captured server-side and accessible programmatically.
 ---
 
 # Debug Mode
@@ -68,38 +51,26 @@ If no path provided, use current working directory.
 
 ### Phase 1: Start Log Server
 
-**Run each command separately. Do NOT combine them.**
+Start the server in background:
 
-1. Create log directory:
-   ```bash
-   mkdir -p /path/to/project/.claude
-   ```
+```bash
+node skills/debug/scripts/debug_server.js /path/to/project &
+```
 
-2. Start server in background (use Bash tool with `is_background: true`):
-   ```bash
-   node /path/to/debug-skill/scripts/debug_server.js /path/to/project
-   ```
-   Wait for "READY" in output before proceeding.
+**Wait for `Ready` in the output before proceeding.**
 
-3. Verify server is running:
-   ```bash
-   curl -s http://localhost:8787/
-   ```
-   Expected: `{"status":"ok","log_dir":"/path/to/project/.claude"}`
+Generate session ID (replace `fix-null-userid` with short bug description):
 
-4. Generate session ID (semantic name + short UUID):
-   ```bash
-   echo "fix-null-userid-$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')"
-   ```
-   Replace `fix-null-userid` with short bug description. **Save this ID for all subsequent commands.**
+```bash
+SESSION_ID="fix-null-userid-$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')"
+echo "Session: $SESSION_ID"
+```
 
 **Server endpoints:**
 - POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
 - GET `/` → returns status and log directory
 
-**Common issues:**
-- If port 8787 busy: `lsof -ti :8787 | xargs kill -9` then restart
-- Server outputs "READY" when fully initialized
+**If port 8787 busy:** `lsof -ti :8787 | xargs kill -9` then restart
 
 ──────────
 

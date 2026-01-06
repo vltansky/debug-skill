@@ -99,9 +99,10 @@ function startServer() {
   });
 
   server.listen(PORT, () => {
-    console.log('Debug Log Server started');
+    console.log('Debug Log Server');
     console.log(`  Endpoint: http://localhost:${PORT}/log`);
     console.log(`  Log dir:  ${CLAUDE_DIR}`);
-    console.log('READY'); // Signal for scripts to detect successful startup
+    console.log('\nReady');
+    console.log('\nPress Ctrl+C to stop');
   });
 }

@@ -64,8 +64,22 @@ Changes to the skill are immediately reflected.
 In your AI agent, invoke the skill:
 
 ```
-debug /path/to/project
+/debug /path/to/project
 ```
+
+## Permissions
+
+To skip permission prompts, add to `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": ["Skill(debug:debug)", "Bash(node:*)"]
+  }
+}
+```
+
+Or run with `claude --dangerously-skip-permissions` (skips all prompts).
 
 ## Agent Compatibility
 
