@@ -14,6 +14,7 @@ if (!action || !projectPath || !sessionId) {
 }
 
 const logDir = path.join(projectPath, ".claude");
+// sessionId should be full name like "debug-1234567890"
 const logFile = path.join(logDir, `${sessionId}.log`);
 
 if (!fs.existsSync(logFile)) {

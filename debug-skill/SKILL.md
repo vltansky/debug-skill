@@ -1,6 +1,14 @@
 ---
 name: debug
-description: Runtime debugging workflow with log collection. Use when fixing bugs that require runtime evidence. Starts a log server, instruments code, collects logs during reproduction, and analyzes them to fix issues. Invoke with project path argument.
+description: |
+  Runtime debugging workflow with automated log collection. Use when:
+  - Fixing bugs that require runtime evidence (values, types, flow)
+  - You need user to reproduce bug and check console/DevTools manually
+  - You've added console.log/debug statements and need to analyze output
+  - Bug depends on user interaction (click, form, modal) that can't be simulated
+  - You'd otherwise ask user to "open DevTools, reproduce X, tell me what you see"
+
+  This skill automates log collection: instead of asking user to copy-paste console output, logs are captured server-side and accessible programmatically.
 allowed-tools:
   - Read
   - Edit
@@ -14,83 +22,124 @@ allowed-tools:
 
 # Debug Mode
 
-## Overview
+Fix bugs with **runtime evidence**, not guesses.
 
-Debug mode is a systematic debugging workflow that requires runtime evidence before making fixes. It avoids guessing from static code analysis alone by collecting actual runtime logs.
+```
+Don't guess → Hypothesize → Instrument → Reproduce → Analyze → Fix → Verify
+```
+
+## When to Use
+
+**Trigger signals** (if you're about to do any of these, use this skill instead):
+- "Open DevTools Console and check for..."
+- "Reproduce the bug and tell me what you see"
+- "Add console.log and let me know the output"
+- "Click X, open Y, check if Z appears in console"
+
+**Example scenario that should trigger this skill:**
+```
+❌ Without skill (manual, slow):
+"I added debug logging. Please:
+1. Open the app in browser
+2. Open DevTools Console (F12)
+3. Open the defect modal and select a defect
+4. Check console for [DEBUG] logs
+5. Tell me what you see"
+
+✅ With skill (automated):
+Logs are captured server-side → you read them directly → no user copy-paste needed
+```
+
+**Use when debugging:**
+- State/value issues (null, undefined, wrong type)
+- Conditional logic (which branch was taken)
+- Async timing (race conditions, load order)
+- User interaction flows (modals, forms, clicks)
 
 ## Arguments
 
-This skill requires the project path as an argument:
 ```
 /debug /path/to/project
 ```
 
-If no path provided, use the current working directory.
+If no path provided, use current working directory.
 
 ## Workflow
 
 ### Phase 1: Start Log Server
 
-1. Create log directory in target project:
+1. Create log directory:
    ```bash
    mkdir -p /path/to/project/.claude
    ```
 
-2. Start the server from the skill's scripts directory.
-
-   **CRITICAL:** Run this command in background using `Bash` tool with `run_in_background: true`.
-
+2. Start server (runs in background):
    ```bash
-   node /path/to/debug-skill/scripts/debug_server.js /path/to/project
+   node /path/to/debug-skill/scripts/debug_server.js /path/to/project &
+   sleep 0.5
    ```
 
-   Replace `/path/to/debug-skill` with the absolute path to this skill's directory.
-
-3. Generate a unique session ID and verify server is running:
+3. Generate session ID:
    ```bash
    SESSION_ID="debug-$(date +%s)"
-   curl -s http://localhost:8787/
+   echo "Session: $SESSION_ID"
    ```
+   Save this for all log file references.
 
-   Save `SESSION_ID` for all log file references. The session ID is passed in each log request body.
+**Server endpoints:**
+- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
+- GET `/` → returns status and log directory
 
-The server on port 8787:
-- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/{sessionId}.log`
-- GET `/` → returns `{"status":"ok","log_dir":"..."}`
-
-**Note:** Do NOT copy the server script to the target project. Run it directly from the skill directory.
+──────────
 
 ### Phase 2: Generate Hypotheses
 
-Before instrumenting code, generate 3-5 specific, testable hypotheses about the bug:
+**Before instrumenting**, generate 3-5 specific hypotheses:
 
-1. List potential causes covering different subsystems
-2. Each hypothesis should be confirmable/rejectable with log evidence
-3. Be specific about what values or behaviors to check
+```
+Hypothesis H1: userId is null when passed to calculateScore()
+  Expected: number (e.g., 5)
+  Actual: null
+  Test: Log userId at function entry
+
+Hypothesis H2: score is string instead of number
+  Expected: 85 (number)
+  Actual: "85" (string)
+  Test: Log typeof score
+```
+
+Each hypothesis must be:
+- **Specific** (not "something is wrong")
+- **Testable** (can confirm/reject with logs)
+- **Cover different subsystems** (don't cluster)
+
+──────────
 
 ### Phase 3: Instrument Code
 
-Add logging calls to the codebase. Use this pattern in the app:
+Add logging calls to test all hypotheses.
 
 **JavaScript/TypeScript:**
 ```javascript
-// Debug log helper - use SESSION_ID from Phase 1
-const SESSION_ID = 'debug-REPLACE_WITH_SESSION_ID';
+// #region debug
+const SESSION_ID = 'debug-REPLACE_WITH_TIMESTAMP';
 const debugLog = (msg, data = {}, hypothesisId = null) =>
   fetch('http://localhost:8787/log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId: SESSION_ID, msg, data, hypothesisId, loc: new Error().stack?.split('\n')[2] })
   }).catch(() => {});
+// #endregion
 
 // Usage
-debugLog('User clicked submit', { userId: 123, formData }, 'H1');
+debugLog('Function entry', { userId, score, typeScore: typeof score }, 'H1,H2');
 ```
 
 **Python:**
 ```python
+# #region debug
 import requests, traceback
-SESSION_ID = 'debug-REPLACE_WITH_SESSION_ID'
+SESSION_ID = 'debug-REPLACE_WITH_TIMESTAMP'
 def debug_log(msg, data=None, hypothesis_id=None):
     try:
         requests.post('http://localhost:8787/log', json={
@@ -98,107 +147,166 @@ def debug_log(msg, data=None, hypothesis_id=None):
             'hypothesisId': hypothesis_id, 'loc': traceback.format_stack()[-2].strip()
         }, timeout=0.5)
     except: pass
+# #endregion
 
 # Usage
-debug_log('Processing request', {'user_id': 123}, 'H1')
+debug_log('Function entry', {'user_id': user_id, 'type': type(user_id)}, 'H1')
 ```
 
-Replace `REPLACE_WITH_SESSION_ID` with the timestamp generated in Phase 1.
-
 **Guidelines:**
-- Add 3-8 instrumentation points
-- Cover function entry/exit, critical values, branch paths
-- Tag each log with relevant `hypothesisId`
-- Wrap instrumentation in comments: `// #region debug` ... `// #endregion`
-- For high-frequency events (mousemove, scroll, dragover): log only on **state change**, not every invocation
-- Log both **intent** (what should happen) and **result** (what actually happened)
+- 3-8 instrumentation points
+- Cover: entry/exit, before/after critical ops, branch paths
+- Tag each log with `hypothesisId`
+- Wrap in `// #region debug` ... `// #endregion`
+- **High-frequency events** (mousemove, scroll): log only on **state change**
+- Log both **intent** and **result**
+
+──────────
 
 ### Phase 4: Clear and Reproduce
 
-1. Clear the log file before reproduction:
+1. Clear logs:
    ```bash
-   node /path/to/debug-skill/scripts/debug_cleanup.js clear /path/to/project $SESSION_ID
+   : > /path/to/project/.claude/$SESSION_ID.log
    ```
 
-2. Provide clear reproduction steps to the user
+2. Provide reproduction steps:
+   ```xml
+   <reproduction_steps>
+   1. Start app: yarn dev
+   2. Navigate to /users
+   3. Click "Calculate Score"
+   4. Observe NaN displayed
+   </reproduction_steps>
+   ```
 
-3. User reproduces the bug while logs are collected
+3. User reproduces bug
+
+──────────
 
 ### Phase 5: Analyze Logs
 
-Read the log file using the `Read` tool:
-
-```
-/path/to/project/.claude/$SESSION_ID.log
+Read and evaluate:
+```bash
+cat /path/to/project/.claude/$SESSION_ID.log
 ```
 
 For each hypothesis:
-- **CONFIRMED**: Log evidence supports this cause
-- **REJECTED**: Log evidence contradicts this hypothesis
+
+```
+Hypothesis H1: userId is null
+  Status: CONFIRMED
+  Evidence: {"msg":"Function entry","data":{"userId":null}}
+
+Hypothesis H2: score is string
+  Status: REJECTED
+  Evidence: {"data":{"typeScore":"number"}}
+```
+
+**Status options:**
+- **CONFIRMED**: Logs prove it
+- **REJECTED**: Logs disprove it
 - **INCONCLUSIVE**: Need more instrumentation
 
-Cite specific log entries as evidence.
+**If all INCONCLUSIVE/REJECTED**: Generate new hypotheses, add more logs, iterate.
+
+──────────
 
 ### Phase 6: Fix
 
-Only fix when logs confirm the root cause. Make targeted fixes based on evidence.
+**Only fix when logs confirm root cause.**
+
+Keep instrumentation active (don't remove yet).
+
+Tag verification logs with `runId: "post-fix"`:
+```javascript
+debugLog('Function entry', { userId, runId: 'post-fix' }, 'H1');
+```
+
+──────────
 
 ### Phase 7: Verify
 
-1. Clear logs again
+1. Clear logs
 2. User reproduces (bug should be gone)
-3. Compare before/after logs
-4. Confirm fix with log evidence
+3. Compare before/after:
+   ```
+   Before: {"data":{"userId":null},"runId":"run1"}
+   After:  {"data":{"userId":5},"runId":"post-fix"}
+   ```
+4. Confirm with log evidence
 
-### Phase 8: Clean Up
+**If still broken**: New hypotheses, more logs, iterate.
+
+──────────
+
+### Phase 8: Five Whys (Optional)
+
+**When to run:** Recurring bug, prod incident, security issue, or "this keeps happening".
+
+After fixing, ask "Why did this bug exist?" to find systemic causes:
+
+```
+Bug: API returns NaN
+
+Why 1: userId was null → Code fix: null check
+Why 2: No input validation → Add validation
+Why 3: No test for null case → Add test
+Why 4: Review didn't catch → (one-off, acceptable)
+```
+
+**Categories:**
+| Type | Action |
+|------|--------|
+| CODE | Fix immediately |
+| TEST | Add test |
+| PROCESS | Update checklist/review |
+| SYSTEMIC | Document patterns |
+
+**Skip if:** Simple one-off bug, low impact, not recurring.
+
+──────────
+
+### Phase 9: Clean Up
 
 Remove instrumentation only after:
 - Post-fix logs prove success
-- User confirms the issue is resolved
+- User confirms resolved
 
-1. Search for `#region debug` markers and remove all debug logging code
-
-2. Remove the log file:
-   ```bash
-   node /path/to/debug-skill/scripts/debug_cleanup.js remove /path/to/project $SESSION_ID
-   ```
+Search for `#region debug` and remove all debug code.
 
 ## Log Format
 
-Each line in `.claude/$SESSION_ID.log` is NDJSON:
+Each line is NDJSON:
 ```json
 {"ts":"2024-01-03T12:00:00.000Z","msg":"Button clicked","data":{"id":5},"hypothesisId":"H1","loc":"app.js:42"}
 ```
 
-## Subagent Delegation (Optional)
-
-For complex bugs, delegate to parallel subagents for faster analysis.
-
-### When to Spawn Subagents
-
-**MUST delegate via Task tool when:**
-1. **3+ hypotheses** need parallel analysis
-2. **Codebase search** needed to find instrumentation points (>5 files)
-3. **Multi-file instrumentation** required
-
-### Parallel Hypothesis Analysis
-
-When analyzing logs with multiple hypotheses, spawn analyzers in parallel:
-
-Use the `Task` tool with `subagent_type: "general-purpose"` for each hypothesis in parallel:
-- H1: "Analyze {log_file} for hypothesis H1: {description}. Return CONFIRMED/REJECTED with specific log line evidence."
-- H2: "Analyze {log_file} for hypothesis H2: {description}. Return CONFIRMED/REJECTED with specific log line evidence."
-- H3: "Analyze {log_file} for hypothesis H3: {description}. Return CONFIRMED/REJECTED with specific log line evidence."
-
-**Why**: Sequential analysis of H1→H2→H3 is slow. Parallel cuts Phase 5 time by 3-5x.
-
-### Instrumentation Discovery
-
-When unsure where to add logging, use `Task` tool with `subagent_type: "Explore"` to trace code flow and find instrumentation points.
-
 ## Critical Rules
 
-1. **Never fix without runtime evidence** - Always collect logs first
-2. **Never remove instrumentation before verification** - Keep logs until fix is confirmed
-3. **If all hypotheses rejected** - Generate new ones, add more instrumentation
-4. **Iterate** - Multiple rounds of instrumentation may be needed
+1. **NEVER fix without runtime evidence** - Always collect logs first
+2. **NEVER remove instrumentation before verification** - Keep until fix confirmed
+3. **NEVER guess** - If unsure, add more logs
+4. **If all hypotheses rejected** - Generate new ones from different subsystems
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Server won't start | Check port 8787 not in use: `lsof -i :8787` |
+| Logs empty | Check fetch/requests not blocked (CORS, firewall) |
+| Wrong log file | Verify session ID matches |
+| Too many logs | Filter by hypothesisId, use state-change logging |
+| Can't reproduce | Ask user for exact steps, check environment |
+
+## Checklist
+
+- [ ] Server started, session ID saved
+- [ ] 3-5 hypotheses generated
+- [ ] 3-8 logs added, tagged with hypothesisId
+- [ ] Logs cleared before reproduction
+- [ ] Reproduction steps provided
+- [ ] Each hypothesis evaluated (CONFIRMED/REJECTED/INCONCLUSIVE)
+- [ ] Fix based on evidence only
+- [ ] Before/after comparison done
+- [ ] Instrumentation removed after confirmation
