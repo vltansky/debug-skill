@@ -14,8 +14,14 @@ if (!action || !projectPath || !sessionId) {
 }
 
 const logDir = path.join(projectPath, ".claude");
-// sessionId should be full name like "debug-1234567890"
-const logFile = path.join(logDir, `${sessionId}.log`);
+// Accept either:
+// - raw session id: "1234567890" -> debug-1234567890.log
+// - full file base: "debug-1234567890" -> debug-1234567890.log
+const toLogFileBase = (raw) => {
+  const base = raw.endsWith(".log") ? raw.slice(0, -4) : raw;
+  return base.startsWith("debug-") ? base : `debug-${base}`;
+};
+const logFile = path.join(logDir, `${toLogFileBase(sessionId)}.log`);
 
 if (!fs.existsSync(logFile)) {
   console.error(`Log file not found: ${logFile}`);

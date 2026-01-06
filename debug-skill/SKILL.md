@@ -79,12 +79,12 @@ If no path provided, use current working directory.
    sleep 0.5
    ```
 
-3. Generate session ID:
+3. Generate session ID (semantic name + short UUID):
    ```bash
-   SESSION_ID="debug-$(date +%s)"
+   SESSION_ID="fix-null-userid-$(uuidgen | cut -c1-6)"
    echo "Session: $SESSION_ID"
    ```
-   Save this for all log file references.
+   Replace `fix-null-userid` with a short description of the bug. Save this for all log file references.
 
 **Server endpoints:**
 - POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
@@ -122,13 +122,21 @@ Add logging calls to test all hypotheses.
 **JavaScript/TypeScript:**
 ```javascript
 // #region debug
-const SESSION_ID = 'debug-REPLACE_WITH_TIMESTAMP';
-const debugLog = (msg, data = {}, hypothesisId = null) =>
-  fetch('http://localhost:8787/log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId: SESSION_ID, msg, data, hypothesisId, loc: new Error().stack?.split('\n')[2] })
-  }).catch(() => {});
+const SESSION_ID = 'REPLACE_WITH_SESSION_ID'; // e.g. 'fix-null-userid-a1b2c3'
+const DEBUG_LOG_URL = 'http://localhost:8787/log';
+
+const debugLog = (msg, data = {}, hypothesisId = null) => {
+  const payload = JSON.stringify({
+    sessionId: SESSION_ID,
+    msg,
+    data,
+    hypothesisId,
+    loc: new Error().stack?.split('\n')[2],
+  });
+
+  if (navigator.sendBeacon?.(DEBUG_LOG_URL, payload)) return;
+  fetch(DEBUG_LOG_URL, { method: 'POST', body: payload }).catch(() => {});
+};
 // #endregion
 
 // Usage
@@ -139,7 +147,7 @@ debugLog('Function entry', { userId, score, typeScore: typeof score }, 'H1,H2');
 ```python
 # #region debug
 import requests, traceback
-SESSION_ID = 'debug-REPLACE_WITH_TIMESTAMP'
+SESSION_ID = 'REPLACE_WITH_SESSION_ID'  # e.g. 'fix-null-userid-a1b2c3'
 def debug_log(msg, data=None, hypothesis_id=None):
     try:
         requests.post('http://localhost:8787/log', json={
@@ -167,7 +175,7 @@ debug_log('Function entry', {'user_id': user_id, 'type': type(user_id)}, 'H1')
 
 1. Clear logs:
    ```bash
-   : > /path/to/project/.claude/$SESSION_ID.log
+   : > /path/to/project/.claude/debug-$SESSION_ID.log
    ```
 
 2. Provide reproduction steps:
@@ -188,7 +196,7 @@ debug_log('Function entry', {'user_id': user_id, 'type': type(user_id)}, 'H1')
 
 Read and evaluate:
 ```bash
-cat /path/to/project/.claude/$SESSION_ID.log
+cat /path/to/project/.claude/debug-$SESSION_ID.log
 ```
 
 For each hypothesis:
@@ -294,32 +302,48 @@ Each line is NDJSON:
 | Issue | Solution |
 |-------|----------|
 | Server won't start | Check port 8787 not in use: `lsof -i :8787` |
-| Logs empty | Check fetch/requests not blocked (CORS, firewall) |
+| Logs empty | Check browser blocks (mixed content/CSP/CORS), firewall |
 | Wrong log file | Verify session ID matches |
 | Too many logs | Filter by hypothesisId, use state-change logging |
 | Can't reproduce | Ask user for exact steps, check environment |
 
 ### CORS / Mixed Content Workarounds
 
-If logs aren't arriving (HTTPS app → HTTP localhost, strict CSP):
+If logs aren't arriving, it’s usually one of:
+- **Mixed content**: HTTPS app → `http://localhost:8787` is blocked. Use a dev-server proxy (same origin) or serve the log endpoint over HTTPS.
+- **CSP**: `connect-src` blocks the log URL. Use a dev-server proxy or update CSP.
+- **CORS preflight**: `Content-Type: application/json` triggers `OPTIONS`. Use a “simple” request (`text/plain`) or `sendBeacon`.
 
-**1. Use `sendBeacon` (recommended)** - no CORS restrictions:
+**1. `sendBeacon` (avoids preflight; fire-and-forget)**:
 ```javascript
+const DEBUG_LOG_URL = 'http://localhost:8787/log';
 const debugLog = (msg, data = {}, hypothesisId = null) => {
   const payload = JSON.stringify({ sessionId: SESSION_ID, msg, data, hypothesisId });
-  navigator.sendBeacon?.('http://localhost:8787/log', payload);
+  if (navigator.sendBeacon?.(DEBUG_LOG_URL, payload)) return;
+  fetch(DEBUG_LOG_URL, { method: 'POST', body: payload }).catch(() => {});
 };
 ```
+Note: still blocked by mixed content + CSP.
 
-**2. Dev server proxy** - route through your dev server:
+**2. Dev server proxy (Vite example)** - same-origin `/__log` → `http://localhost:8787/log`:
 ```javascript
 // vite.config.js
-export default { server: { proxy: { '/__log': 'http://localhost:8787/log' } } }
+export default {
+  server: {
+    proxy: {
+      '/__log': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/__log/, '/log'),
+      },
+    },
+  },
+};
 
 // Then POST to /__log instead of localhost:8787/log
 ```
 
-**3. Browser extension** - "CORS Unblock" or similar (last resort)
+**3. Last resort (local only)** - allow insecure content / disable mixed-content blocking in browser settings
 
 ## Checklist
 
