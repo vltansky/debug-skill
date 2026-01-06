@@ -68,27 +68,38 @@ If no path provided, use current working directory.
 
 ### Phase 1: Start Log Server
 
+**Run each command separately. Do NOT combine them.**
+
 1. Create log directory:
    ```bash
    mkdir -p /path/to/project/.claude
    ```
 
-2. Start server (runs in background):
+2. Start server in background (use Bash tool with `is_background: true`):
    ```bash
-   node /path/to/debug-skill/scripts/debug_server.js /path/to/project &
-   sleep 0.5
+   node /path/to/debug-skill/scripts/debug_server.js /path/to/project
    ```
+   Wait for "READY" in output before proceeding.
 
-3. Generate session ID (semantic name + short UUID):
+3. Verify server is running:
    ```bash
-   SESSION_ID="fix-null-userid-$(uuidgen | cut -c1-6)"
-   echo "Session: $SESSION_ID"
+   curl -s http://localhost:8787/
    ```
-   Replace `fix-null-userid` with a short description of the bug. Save this for all log file references.
+   Expected: `{"status":"ok","log_dir":"/path/to/project/.claude"}`
+
+4. Generate session ID (semantic name + short UUID):
+   ```bash
+   echo "fix-null-userid-$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')"
+   ```
+   Replace `fix-null-userid` with short bug description. **Save this ID for all subsequent commands.**
 
 **Server endpoints:**
 - POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
 - GET `/` → returns status and log directory
+
+**Common issues:**
+- If port 8787 busy: `lsof -ti :8787 | xargs kill -9` then restart
+- Server outputs "READY" when fully initialized
 
 ──────────
 
