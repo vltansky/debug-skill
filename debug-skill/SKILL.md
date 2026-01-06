@@ -299,6 +299,28 @@ Each line is NDJSON:
 | Too many logs | Filter by hypothesisId, use state-change logging |
 | Can't reproduce | Ask user for exact steps, check environment |
 
+### CORS / Mixed Content Workarounds
+
+If logs aren't arriving (HTTPS app → HTTP localhost, strict CSP):
+
+**1. Use `sendBeacon` (recommended)** - no CORS restrictions:
+```javascript
+const debugLog = (msg, data = {}, hypothesisId = null) => {
+  const payload = JSON.stringify({ sessionId: SESSION_ID, msg, data, hypothesisId });
+  navigator.sendBeacon?.('http://localhost:8787/log', payload);
+};
+```
+
+**2. Dev server proxy** - route through your dev server:
+```javascript
+// vite.config.js
+export default { server: { proxy: { '/__log': 'http://localhost:8787/log' } } }
+
+// Then POST to /__log instead of localhost:8787/log
+```
+
+**3. Browser extension** - "CORS Unblock" or similar (last resort)
+
 ## Checklist
 
 - [ ] Server started, session ID saved
