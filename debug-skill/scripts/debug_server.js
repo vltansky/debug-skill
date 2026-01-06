@@ -2,20 +2,25 @@
 /**
  * Debug Log Server
  *
- * Receives logs via HTTP POST and writes them to {project}/.claude/debug-{sessionId}.log
+ * Receives logs via HTTP POST and writes them to {project}/.debug/debug-{sessionId}.log
  * Supports multiple concurrent sessions via sessionId parameter.
  *
  * Usage:
  *     node debug_server.js /path/to/project
  *     node debug_server.js  # Uses current directory
+ *
+ * Environment:
+ *     DEBUG_LOG_DIR - Override log subdirectory (default: .debug)
+ *     DEBUG_PORT    - Override port (default: 8787)
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const LOG_DIR = process.argv[2] || '.';
-const CLAUDE_DIR = path.join(LOG_DIR, '.claude');
+const PROJECT_DIR = process.argv[2] || '.';
+const LOG_SUBDIR = process.env.DEBUG_LOG_DIR || '.debug';
+const LOG_DIR = path.join(PROJECT_DIR, LOG_SUBDIR);
 const PORT = parseInt(process.env.DEBUG_PORT || '8787', 10);
 
 // Check if server already running
@@ -44,9 +49,9 @@ const PORT = parseInt(process.env.DEBUG_PORT || '8787', 10);
 })();
 
 function startServer() {
-  fs.mkdirSync(CLAUDE_DIR, { recursive: true });
+  fs.mkdirSync(LOG_DIR, { recursive: true });
 
-  const getLogFile = (sessionId) => path.join(CLAUDE_DIR, `debug-${sessionId}.log`);
+  const getLogFile = (sessionId) => path.join(LOG_DIR, `debug-${sessionId}.log`);
 
   const server = http.createServer((req, res) => {
     const cors = {
@@ -63,7 +68,7 @@ function startServer() {
 
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
-      res.end(JSON.stringify({ status: 'ok', log_dir: CLAUDE_DIR }));
+      res.end(JSON.stringify({ status: 'ok', log_dir: LOG_DIR }));
       return;
     }
 
@@ -101,7 +106,7 @@ function startServer() {
   server.listen(PORT, () => {
     console.log('Debug Log Server');
     console.log(`  Endpoint: http://localhost:${PORT}/log`);
-    console.log(`  Log dir:  ${CLAUDE_DIR}`);
+    console.log(`  Log dir:  ${LOG_DIR}`);
     console.log('\nReady');
     console.log('\nPress Ctrl+C to stop');
   });

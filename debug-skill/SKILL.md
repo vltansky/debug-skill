@@ -67,7 +67,7 @@ echo "Session: $SESSION_ID"
 ```
 
 **Server endpoints:**
-- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.claude/debug-{SESSION_ID}.log`
+- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.debug/debug-{SESSION_ID}.log`
 - GET `/` → returns status and log directory
 
 **If port 8787 busy:** `lsof -ti :8787 | xargs kill -9` then restart
@@ -157,7 +157,7 @@ debug_log('Function entry', {'user_id': user_id, 'type': type(user_id)}, 'H1')
 
 1. Clear logs:
    ```bash
-   : > /path/to/project/.claude/debug-$SESSION_ID.log
+   : > /path/to/project/.debug/debug-$SESSION_ID.log
    ```
 
 2. Provide reproduction steps:
@@ -178,7 +178,7 @@ debug_log('Function entry', {'user_id': user_id, 'type': type(user_id)}, 'H1')
 
 Read and evaluate:
 ```bash
-cat /path/to/project/.claude/debug-$SESSION_ID.log
+cat /path/to/project/.debug/debug-$SESSION_ID.log
 ```
 
 For each hypothesis:

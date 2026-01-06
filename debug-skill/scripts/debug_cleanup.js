@@ -13,7 +13,8 @@ if (!action || !projectPath || !sessionId) {
   process.exit(1);
 }
 
-const logDir = path.join(projectPath, ".claude");
+const logSubdir = process.env.DEBUG_LOG_DIR || ".debug";
+const logDir = path.join(projectPath, logSubdir);
 // Accept either:
 // - raw session id: "1234567890" -> debug-1234567890.log
 // - full file base: "debug-1234567890" -> debug-1234567890.log
