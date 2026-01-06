@@ -1,0 +1,21 @@
+{
+  "name": "debug-skill-marketplace",
+  "owner": {
+    "name": "Vlad Tansky",
+    "email": "vltansky@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "debug",
+      "source": "./",
+      "description": "Runtime debugging workflow with automated log collection for AI agents",
+      "strict": false,
+      "keywords": ["debug", "logging", "runtime", "devtools", "console"],
+      "skills": ["./debug-skill"]
+    }
+  ],
+  "metadata": {
+    "description": "Marketplace for the debug skill",
+    "version": "1.0.0"
+  }
+}

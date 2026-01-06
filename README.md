@@ -13,6 +13,15 @@ Runtime agnostic - works anywhere with localhost access.
 
 ## Installation
 
+### Claude Code (via plugin marketplace)
+
+```
+/plugin marketplace add vltansky/debug-skill
+/plugin install debug@vltansky/debug-skill
+```
+
+Restart Claude Code after installation.
+
 ### Claude Code / OpenCode (via openskills)
 
 ```bash
