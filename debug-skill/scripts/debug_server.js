@@ -6,8 +6,8 @@
  * Supports multiple concurrent sessions via sessionId parameter.
  *
  * Usage:
- *     node debug_server.js /path/to/project
- *     node debug_server.js  # Uses current directory
+ *     node debug_server.js /path/to/project SESSION_ID
+ *     node debug_server.js /path/to/project  # Error: session ID required
  *
  * Environment:
  *     DEBUG_LOG_DIR - Override log subdirectory (default: .debug)
@@ -19,9 +19,20 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const PROJECT_DIR = process.argv[2] || '.';
+const SESSION_ID = process.argv[3];
 const LOG_SUBDIR = process.env.DEBUG_LOG_DIR || '.debug';
 const LOG_DIR = path.join(PROJECT_DIR, LOG_SUBDIR);
 const PORT = parseInt(process.env.DEBUG_PORT || '8787', 10);
+
+// Validate session ID is provided
+if (!SESSION_ID) {
+  console.error('Error: Session ID required');
+  console.error('Usage: node debug_server.js /path/to/project SESSION_ID');
+  console.error('');
+  console.error('Generate session ID first:');
+  console.error('  SESSION_ID="fix-description-$(uuidgen | cut -c1-6 | tr \'[:upper:]\' \'[:lower:]\')"');
+  process.exit(1);
+}
 
 // Check if server already running
 (async () => {
@@ -68,7 +79,11 @@ function startServer() {
 
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
-      res.end(JSON.stringify({ status: 'ok', log_dir: LOG_DIR }));
+      res.end(JSON.stringify({
+        status: 'ok',
+        session_id: SESSION_ID,
+        log_file: path.join(LOG_DIR, `debug-${SESSION_ID}.log`),
+      }));
       return;
     }
 
@@ -105,8 +120,9 @@ function startServer() {
 
   server.listen(PORT, () => {
     console.log('Debug Log Server');
+    console.log(`  Session:  ${SESSION_ID}`);
     console.log(`  Endpoint: http://localhost:${PORT}/log`);
-    console.log(`  Log dir:  ${LOG_DIR}`);
+    console.log(`  Log file: ${path.join(LOG_DIR, `debug-${SESSION_ID}.log`)}`);
     console.log('\nReady');
     console.log('\nPress Ctrl+C to stop');
   });

@@ -51,24 +51,35 @@ If no path provided, use current working directory.
 
 ### Phase 1: Start Log Server
 
-Start the server in background:
+**Step 1: Generate session ID FIRST** (replace `fix-null-userid` with short bug description):
 
 ```bash
-node skills/debug/scripts/debug_server.js /path/to/project &
+SESSION_ID="fix-null-userid-$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')"
+echo "Session ID: $SESSION_ID"
+```
+
+**Step 2: Start server with the session ID:**
+
+```bash
+node skills/debug/scripts/debug_server.js /path/to/project $SESSION_ID &
 ```
 
 **Wait for `Ready` in the output before proceeding.**
 
-Generate session ID (replace `fix-null-userid` with short bug description):
+**Step 3: Verify session ID matches:**
 
 ```bash
-SESSION_ID="fix-null-userid-$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')"
-echo "Session: $SESSION_ID"
+curl -s http://localhost:8787/
+```
+
+Response should show your session ID:
+```json
+{"status":"ok","session_id":"fix-null-userid-a1b2c3","log_file":"/path/to/project/.debug/debug-fix-null-userid-a1b2c3.log"}
 ```
 
 **Server endpoints:**
 - POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.debug/debug-{SESSION_ID}.log`
-- GET `/` → returns status and log directory
+- GET `/` → returns status, session ID, and log file path
 
 **If port 8787 busy:** `lsof -ti :8787 | xargs kill -9` then restart
 
@@ -329,7 +340,9 @@ export default {
 
 ## Checklist
 
-- [ ] Server started, session ID saved
+- [ ] Session ID generated FIRST (before starting server)
+- [ ] Server started with session ID as argument
+- [ ] Verified session ID via `curl http://localhost:8787/`
 - [ ] 3-5 hypotheses generated
 - [ ] 3-8 logs added, tagged with hypothesisId
 - [ ] Logs cleared before reproduction
