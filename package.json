@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Runtime debugging skill for AI coding agents",
   "scripts": {
-    "install-skill": "mkdir -p ~/.claude/skills && cp -r debug-skill ~/.claude/skills/debug && echo 'Installed to ~/.claude/skills/debug'"
+    "install-skill": "mkdir -p ~/.claude/skills ~/.codex/skills ~/.config/opencode/skill && cp -r debug-skill ~/.claude/skills/debug && cp -r debug-skill ~/.codex/skills/debug && cp -r debug-skill ~/.config/opencode/skill/debug && echo 'Installed to ~/.claude/skills/debug, ~/.codex/skills/debug, ~/.config/opencode/skill/debug'"
   },
   "keywords": [
     "debug",
