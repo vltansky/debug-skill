@@ -51,35 +51,33 @@ If no path provided, use current working directory.
 
 ### Phase 1: Start Log Server
 
-**Step 1: Generate session ID FIRST** (replace `fix-null-userid` with short bug description):
+**Step 1: Ensure server is running** (starts if needed, no-op if already running):
 
 ```bash
-SESSION_ID="fix-null-userid-$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')"
-echo "Session ID: $SESSION_ID"
+node skills/debug/scripts/debug_server.js /path/to/project &
 ```
 
-**Step 2: Start server with the session ID:**
+Server outputs JSON:
+- `{"status":"started",...}` - new server started
+- `{"status":"already_running",...}` - server was already running (this is fine!)
+
+**Step 2: Create session** (server generates unique ID from your description):
 
 ```bash
-node skills/debug/scripts/debug_server.js /path/to/project $SESSION_ID &
+curl -s -X POST http://localhost:8787/session -d '{"name":"fix-null-userid"}'
 ```
 
-**Wait for `Ready` in the output before proceeding.**
-
-**Step 3: Verify session ID matches:**
-
-```bash
-curl -s http://localhost:8787/
-```
-
-Response should show your session ID:
+Response:
 ```json
-{"status":"ok","session_id":"fix-null-userid-a1b2c3","log_file":"/path/to/project/.debug/debug-fix-null-userid-a1b2c3.log"}
+{"session_id":"fix-null-userid-a1b2c3","log_file":"/path/to/project/.debug/debug-fix-null-userid-a1b2c3.log"}
 ```
+
+**Save the `session_id` from the response** - use it in all subsequent steps.
 
 **Server endpoints:**
-- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to `{project}/.debug/debug-{SESSION_ID}.log`
-- GET `/` → returns status, session ID, and log file path
+- POST `/session` with `{"name": "description"}` → creates session, returns `{session_id, log_file}`
+- POST `/log` with `{"sessionId": "...", "msg": "..."}` → writes to log file
+- GET `/` → returns status and log directory
 
 **If port 8787 busy:** `lsof -ti :8787 | xargs kill -9` then restart
 
@@ -340,9 +338,8 @@ export default {
 
 ## Checklist
 
-- [ ] Session ID generated FIRST (before starting server)
-- [ ] Server started with session ID as argument
-- [ ] Verified session ID via `curl http://localhost:8787/`
+- [ ] Server running (started or already_running)
+- [ ] Session created via `POST /session` - save the returned `session_id`
 - [ ] 3-5 hypotheses generated
 - [ ] 3-8 logs added, tagged with hypothesisId
 - [ ] Logs cleared before reproduction
