@@ -1,6 +1,6 @@
 # Debug Skill
 
-Ported [Cursor's Debug Mode](https://cursor.com/blog/debug-mode) as a skill for Claude Code, OpenCode, Codex, and any agent that supports skills.
+Ported [Cursor's Debug Mode](https://cursor.com/blog/debug-mode) as a skill for Claude Code, OpenCode, Codex, Cursor, and any agent that supports skills.
 
 ![Debug Skill Screenshot](screenshot.png)
 
@@ -13,60 +13,33 @@ Runtime agnostic - works anywhere with localhost access.
 
 ## Installation
 
-### Claude Code (via plugin marketplace)
-
-```
-/plugin marketplace add vltansky/debug-skill
-/plugin install debug@vltansky/debug-skill
-```
-
-Restart Claude Code after installation.
-
-### Claude Code / OpenCode (via openskills)
+### Quick Install (recommended)
 
 ```bash
-npx -y openskills install vltansky/debug-skill
-npx -y openskills sync
+npx add-skill vltansky/debug-skill
 ```
 
-OpenCode natively reads skills from `.claude/skills/` - openskills installs there by default.
+Installs to all detected agents (Claude Code, OpenCode, Codex, Cursor, Antigravity).
 
-### Codex
+**Options:**
+```bash
+npx add-skill vltansky/debug-skill --global    # Install globally
+npx add-skill vltansky/debug-skill -a claude-code  # Specific agent
+npx add-skill vltansky/debug-skill -g -y       # CI/CD (no prompts)
+```
+
+### Claude Code Plugin
 
 ```bash
-# Using Codex's built-in installer
-$skill-installer install https://github.com/vltansky/debug-skill/tree/main/debug-skill
-
-# Or manual
-git clone https://github.com/vltansky/debug-skill.git
-cp -r debug-skill/debug-skill ~/.codex/skills/debug
+/install vltansky/debug-skill
 ```
 
-After install, restart Codex to load.
-
-### Manual (any agent)
+### Manual
 
 ```bash
 git clone https://github.com/vltansky/debug-skill.git
-
-# Claude Code / OpenCode
-cp -r debug-skill/debug-skill ~/.claude/skills/debug
-
-# Or project-local
-cp -r debug-skill/debug-skill .claude/skills/debug
+cp -r debug-skill ~/.claude/skills/debug
 ```
-
-### Local Development (symlink)
-
-For active skill development:
-
-```bash
-git clone https://github.com/vltansky/debug-skill.git ~/dev/debug-skill
-mkdir -p .claude/skills
-ln -s ~/dev/debug-skill/debug-skill .claude/skills/debug
-```
-
-Changes to the skill are immediately reflected.
 
 ## Usage
 
@@ -75,6 +48,11 @@ In your AI agent, invoke the skill:
 ```
 /debug /path/to/project
 ```
+
+Or just describe a bug - the skill auto-triggers on phrases like:
+- "debug this", "fix this bug", "why isn't this working"
+- "investigate this issue", "trace the problem"
+- "UI not updating", "state is wrong", "value is null"
 
 ## Permissions
 
@@ -88,16 +66,15 @@ To skip permission prompts, add to `~/.claude/settings.json`:
 }
 ```
 
-Or run with `claude --dangerously-skip-permissions` (skips all prompts).
-
 ## Agent Compatibility
 
-| Agent | Skill Location | Install Method |
-|-------|---------------|----------------|
-| Claude Code | `~/.claude/skills/` | openskills, manual |
-| OpenCode | `.opencode/skill/` or `.claude/skills/` | openskills, manual |
-| Codex | `~/.codex/skills/` | `$skill-installer`, manual |
-| Cursor/Windsurf/Aider | via `AGENTS.md` | openskills sync |
+| Agent | Global Path | Project Path |
+|-------|-------------|--------------|
+| Claude Code | `~/.claude/skills/debug/` | `.claude/skills/debug/` |
+| OpenCode | `~/.config/opencode/skill/debug/` | `.opencode/skill/debug/` |
+| Codex | `~/.codex/skills/debug/` | `.codex/skills/debug/` |
+| Cursor | `~/.cursor/skills/debug/` | `.cursor/skills/debug/` |
+| Antigravity | `~/.gemini/antigravity/skills/debug/` | `.agent/skills/debug/` |
 
 ## Structure
 

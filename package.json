@@ -2,14 +2,13 @@
   "name": "debug-skill",
   "version": "1.0.0",
   "description": "Runtime debugging skill for AI coding agents",
-  "scripts": {
-    "install-skill": "for d in ~/.claude/skills ~/.codex/skills ~/.config/opencode/skill; do mkdir -p $d && rsync -a --delete debug-skill/ $d/debug/; done && echo 'Installed to ~/.claude/skills/debug, ~/.codex/skills/debug, ~/.config/opencode/skill/debug'"
-  },
   "keywords": [
     "debug",
     "skills",
     "claude",
     "cursor",
+    "codex",
+    "opencode",
     "ai",
     "agents"
   ],
