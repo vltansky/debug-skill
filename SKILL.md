@@ -344,6 +344,70 @@ export default {
 
 **3. Last resort (local only)** - allow insecure content / disable mixed-content blocking in browser settings
 
+### Chrome Extension Debugging
+
+Content scripts run in an **isolated world** with strict CSP - they **cannot** directly fetch to `localhost:8787`. The solution is to relay logs through the background script (service worker).
+
+**Content Script (sender):**
+```javascript
+// #region debug
+const DEBUG_SESSION_ID = 'your-session-id-here';
+
+const debugLog = (msg, data = {}, hypothesisId = null) => {
+  chrome.runtime.sendMessage({
+    type: 'DEBUG_LOG',
+    payload: {
+      sessionId: DEBUG_SESSION_ID,
+      msg,
+      data,
+      hypothesisId,
+      loc: new Error().stack?.split('\n')[2]?.trim(),
+    },
+  }).catch(() => {});
+};
+// #endregion
+
+// Usage
+debugLog('handleMouseMove', { target: target.tagName, rect }, 'H1');
+```
+
+**Background Script (relay):**
+```javascript
+// #region debug - relay logs to debug server
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'DEBUG_LOG') {
+    fetch('http://localhost:8787/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message.payload),
+    }).catch(() => {});
+    sendResponse({ ok: true });
+    return true;
+  }
+});
+// #endregion
+```
+
+**Why this works:**
+- Background scripts (service workers) have relaxed CSP and can fetch to localhost
+- `chrome.runtime.sendMessage` is the bridge between content script and background
+- Keep both debug regions tagged for easy cleanup
+
+**Injected scripts (MAIN world):**
+If debugging code injected via `<script>` into the page context, use `window.postMessage` to relay to content script, which then relays to background:
+
+```javascript
+// In MAIN world (injected script)
+window.postMessage({ type: 'DEBUG_LOG_RELAY', payload: { ... } }, '*');
+
+// In content script
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'DEBUG_LOG_RELAY') {
+    chrome.runtime.sendMessage({ type: 'DEBUG_LOG', payload: e.data.payload });
+  }
+});
+```
+
 ## Checklist
 
 - [ ] Server running (started or already_running)
